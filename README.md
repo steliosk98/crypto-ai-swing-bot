@@ -26,7 +26,7 @@ This project focuses on:
 | Paper Broker | ✔ | Simulated execution for backtesting |
 | Backtesting | ✔ | Full walk-forward simulation |
 | AI Filter | ⏳ optional | Placeholder for trade-quality evaluation |
-| Live Trading | ⏳ future | Binance execution to be added safely |
+| Live Trading | ✔ | Binance USDⓈ-M futures auto execution (opt-in) |
 
 ---
 
@@ -39,6 +39,14 @@ The bot is designed to:
 - use **clear, explainable rules**
 
 This improves survivability and reduces churn.
+
+---
+
+## ✅ Current Status
+
+- Live trading loop implemented and gated by `ENABLE_LIVE_TRADING`
+- Mean Reversion strategy tuned for consistency (RSI 32/68, ATR mult 1.0, stretch 0.006, ATR stretch 0.75)
+- Futures and local BTC/USD backtests updated with fee modeling
 
 ---
 
@@ -92,6 +100,11 @@ Optional risk configuration (defaults shown in `.env.example`):
 - `MAX_DAILY_LOSS_PCT` (default 0.02)
 - `MAX_TRADES_PER_DAY` (default 5)
 - `LIVE_LEVERAGE` (default 1)
+Strategy parameters (defaults shown in `.env.example`):
+- `RSI_LOW` / `RSI_HIGH` (default 32 / 68)
+- `ATR_MULT` (default 1.0)
+- `MIN_STRETCH` (default 0.006)
+- `MIN_STRETCH_ATR_MULT` (default 0.75)
 
 Start the live loop:
 
@@ -107,6 +120,7 @@ The current backtests use a mean-reversion rule set designed to capture
 stretched moves back toward a short-term mean:
 - RSI extremes as a trigger (oversold/overbought)
 - minimum price stretch requirement before entry
+- volatility-normalized stretch floor (ATR-based)
 - ATR-based sizing for stop-loss and take-profit
 - trade limiter applied with daily reset at NYSE open
 
@@ -117,24 +131,34 @@ rather than trend continuation.
 
 Using Bitstamp BTC/USD 1h data (local CSV) for 2018-05-15 → 2025-12-01.
 Fees modeled as Binance USDC taker 0.05% per side:
-- Mean Reversion strategy
-- Return: 998.47%
-- Max Drawdown: -41.11%
-- Trades: 4523
-- Win Rate: 60.51%
+- Mean Reversion strategy (volatility-normalized stretch)
+- Return: 3994.20%
+- Max Drawdown: -43.82%
+- Trades: 4779
+- Win Rate: 61.81%
 
 Per-year breakdown:
-- 2018 (from 2018-05-15): Return -19.40%, Trades 346, Win Rate 53.47%, Max DD -22.97%
-- 2019: Return -6.15%, Trades 563, Win Rate 54.71%, Max DD -29.31%
-- 2020: Return 21.57%, Trades 597, Win Rate 59.80%, Max DD -19.45%
-- 2021: Return 183.41%, Trades 554, Win Rate 62.64%, Max DD -11.51%
-- 2022: Return 58.28%, Trades 557, Win Rate 61.94%, Max DD -13.88%
-- 2023: Return -10.42%, Trades 564, Win Rate 57.98%, Max DD -21.31%
-- 2024: Return 31.67%, Trades 631, Win Rate 60.86%, Max DD -14.41%
-- 2025 (through 2025-12-01): Return 110.76%, Trades 574, Win Rate 70.03%, Max DD -6.81%
+- 2018 (from 2018-05-15): Return -24.82%, Trades 354, Win Rate 52.26%, Max DD -30.43%
+- 2019: Return -5.10%, Trades 576, Win Rate 55.21%, Max DD -27.52%
+- 2020: Return 24.19%, Trades 623, Win Rate 59.55%, Max DD -20.77%
+- 2021: Return 302.31%, Trades 599, Win Rate 65.61%, Max DD -15.42%
+- 2022: Return 116.32%, Trades 609, Win Rate 63.55%, Max DD -14.28%
+- 2023: Return 0.18%, Trades 598, Win Rate 59.53%, Max DD -14.60%
+- 2024: Return 93.60%, Trades 675, Win Rate 63.70%, Max DD -9.31%
+- 2025 (through 2025-12-01): Return 144.61%, Trades 596, Win Rate 70.97%, Max DD -5.87%
 
-Equity curve (full window):
-![Equity Curve](/equity_curve_full.png)
+Equity curve (BTC/USD full window):
+![Equity Curve](equity_curve_full.png)
+
+## 🧪 Historical Testing (Binance USDⓈ-M Futures)
+
+Using Binance BTC/USDC perpetual 1h data for 2023-01-01 → 2025-12-01:
+- Mean Reversion strategy (same parameters as live)
+- Return: 168.83%
+- Max Drawdown: -18.99%
+- Trades: 1538
+- Win Rate: 62.87%
+
 
 Run multi-window backtests (full + per-year):
 
