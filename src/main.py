@@ -14,7 +14,7 @@ from filters.trade_limiter import TradeLimiter
 
 
 # --- Configurable parameters ---
-SYMBOL = "BTC/USDT"
+SYMBOL = "BTC/USDC"
 TIMEFRAME = "1h"
 CANDLE_LOOKBACK = 300  # how many candles to pull
 

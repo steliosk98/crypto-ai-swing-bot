@@ -93,7 +93,7 @@ def run_backtest(
 if __name__ == "__main__":
     # UPDATE THESE DATES TO TEST DIFFERENT PERIODS
     run_backtest(
-        symbol="BTC/USDT",
+        symbol="BTC/USDC",
         timeframe="1h",
         start="2021-01-01",
         end="2022-01-01"
