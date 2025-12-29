@@ -23,6 +23,11 @@ class Config:
     MAX_DAILY_PROFIT_PCT = float(os.getenv("MAX_DAILY_PROFIT_PCT", "0.015"))
     ENABLE_LIVE_TRADING = os.getenv("ENABLE_LIVE_TRADING", "false").lower() == "true"
 
+    RSI_LOW = float(os.getenv("RSI_LOW", "28"))
+    RSI_HIGH = float(os.getenv("RSI_HIGH", "72"))
+    ATR_MULT = float(os.getenv("ATR_MULT", "1.0"))
+    MIN_STRETCH = float(os.getenv("MIN_STRETCH", "0.006"))
+
     # Basic validation
     @staticmethod
     def show_loaded():

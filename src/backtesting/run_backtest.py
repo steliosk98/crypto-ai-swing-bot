@@ -38,7 +38,13 @@ def run_backtest(
     candles = add_indicators(candles)
 
     # ---- Components ----
-    strategy = MeanReversionStrategy(symbol)
+    strategy = MeanReversionStrategy(
+        symbol,
+        atr_mult=Config.ATR_MULT,
+        rsi_low=Config.RSI_LOW,
+        rsi_high=Config.RSI_HIGH,
+        min_stretch=Config.MIN_STRETCH
+    )
     broker = PaperBroker(fee_rate=0.0005)
     limiter = TradeLimiter(
         max_trades_per_day=Config.MAX_TRADES_PER_DAY,

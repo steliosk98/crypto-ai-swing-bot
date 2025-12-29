@@ -20,7 +20,13 @@ def main():
         timeframe=Config.LIVE_TIMEFRAME,
         limit=Config.LIVE_CANDLE_LOOKBACK
     )
-    strategy = MeanReversionStrategy(Config.LIVE_SYMBOL)
+    strategy = MeanReversionStrategy(
+        Config.LIVE_SYMBOL,
+        atr_mult=Config.ATR_MULT,
+        rsi_low=Config.RSI_LOW,
+        rsi_high=Config.RSI_HIGH,
+        min_stretch=Config.MIN_STRETCH
+    )
     limiter = TradeLimiter(
         max_trades_per_day=Config.MAX_TRADES_PER_DAY,
         max_daily_loss_pct=Config.MAX_DAILY_LOSS_PCT,

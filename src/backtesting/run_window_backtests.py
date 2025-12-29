@@ -8,6 +8,7 @@ from indicators.indicator_engine import add_indicators
 from execution.paper_broker import PaperBroker
 from filters.trade_limiter import TradeLimiter
 from strategy.variants import MeanReversionStrategy
+from utils.config import Config
 from utils.logger import log
 
 
@@ -27,7 +28,13 @@ def _run_window(
         f"{candles['timestamp'].iloc[-1].date()} | Rows: {len(candles)}"
     )
     candles = add_indicators(candles)
-    strategy = MeanReversionStrategy(symbol)
+    strategy = MeanReversionStrategy(
+        symbol,
+        atr_mult=Config.ATR_MULT,
+        rsi_low=Config.RSI_LOW,
+        rsi_high=Config.RSI_HIGH,
+        min_stretch=Config.MIN_STRETCH
+    )
     broker = PaperBroker(fee_rate=0.0005)
     limiter = TradeLimiter(log_resets=False, log_blocks=False)
     session = SessionState()
