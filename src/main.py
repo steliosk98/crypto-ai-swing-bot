@@ -1,30 +1,76 @@
-from utils.logger import log
+import time
+
 from data.market_data import MarketData
-from strategy.btc_trend_pullback import BTCTrendPullbackStrategy
+from execution.live_broker import LiveBroker
 from filters.trade_limiter import TradeLimiter
-
-
-SYMBOL = "BTC/USDC"
-TIMEFRAME = "1h"
-CANDLE_LOOKBACK = 200
+from strategy.variants import MeanReversionStrategy
+from utils.config import Config
+from utils.logger import log
 
 
 def main():
-    log.info("=== Live decision cycle — no order execution ===")
-
-    data = MarketData(SYMBOL, timeframe=TIMEFRAME, limit=CANDLE_LOOKBACK)
-    candles = data.fetch_ohlcv()
-    if candles.empty:
-        log.warning("No candle data — skipping cycle.")
+    if not Config.ENABLE_LIVE_TRADING:
+        log.error("ENABLE_LIVE_TRADING=false. Set to true in .env to place live orders.")
         return
 
-    strategy = BTCTrendPullbackStrategy(SYMBOL)
-    signal = strategy.generate_signal(candles)
+    log.info("=== Live trading loop (auto execution enabled) ===")
 
-    limiter = TradeLimiter()
-    if signal.is_actionable() and limiter.can_trade():
-        limiter.record_trade_opened()
-    log.info(f"Signal for {SYMBOL}: {signal.side} ({signal.reason})")
+    data = MarketData(
+        Config.LIVE_SYMBOL,
+        timeframe=Config.LIVE_TIMEFRAME,
+        limit=Config.LIVE_CANDLE_LOOKBACK
+    )
+    strategy = MeanReversionStrategy(Config.LIVE_SYMBOL)
+    limiter = TradeLimiter(
+        max_trades_per_day=Config.MAX_TRADES_PER_DAY,
+        max_daily_loss_pct=Config.MAX_DAILY_LOSS_PCT,
+        max_daily_profit_pct=Config.MAX_DAILY_PROFIT_PCT
+    )
+    try:
+        broker = LiveBroker(
+            symbol=Config.LIVE_SYMBOL,
+            leverage=Config.LIVE_LEVERAGE,
+            risk_per_trade=Config.RISK_PER_TRADE
+        )
+    except ValueError as exc:
+        log.error(str(exc))
+        return
+
+    last_candle_ts = None
+
+    while True:
+        candles = data.fetch_ohlcv()
+        if candles.empty:
+            log.warning("No candle data — retrying.")
+            time.sleep(Config.LIVE_POLL_SECONDS)
+            continue
+
+        last = candles.iloc[-1]
+        last_ts = last["timestamp"]
+
+        if last_candle_ts is not None and last_ts <= last_candle_ts:
+            broker.sync_position(mark_price=float(last["close"]), trade_limiter=limiter)
+            time.sleep(Config.LIVE_POLL_SECONDS)
+            continue
+
+        last_candle_ts = last_ts
+        signal = strategy.generate_signal(candles)
+
+        broker.sync_position(mark_price=float(last["close"]), trade_limiter=limiter)
+
+        if signal.is_actionable() and limiter.can_trade(now_utc=last_ts):
+            if not broker.has_open_position():
+                opened = broker.open_position(
+                    side=signal.side,
+                    entry_price=float(signal.entry_price),
+                    stop_loss=float(signal.stop_loss),
+                    take_profit=float(signal.take_profit)
+                )
+                if opened:
+                    limiter.record_trade_opened()
+
+        log.info(f"Signal for {Config.LIVE_SYMBOL}: {signal.side} ({signal.reason})")
+        time.sleep(Config.LIVE_POLL_SECONDS)
 
 
 if __name__ == "__main__":

@@ -69,15 +69,35 @@ Modify the dates in `run_backtest.py` to test other periods.
 
 ---
 
-## ▶️ Run Live Decision Cycle (no trading)
+## ▶️ Live Loop (Disabled by Default)
 
-A single decision cycle using live candles:
+`src/main.py` runs the live trading loop. It will **not** place orders unless
+`ENABLE_LIVE_TRADING=true` is set in `.env`.
+
+---
+
+## ⚡ Live Trading (Auto Execution)
+
+Live trading uses Binance USDⓈ-M futures on BTC/USDC and **will place real orders**.
+Set the following in `.env` before running:
+
+```
+ENABLE_LIVE_TRADING=true
+BINANCE_API_KEY=...
+BINANCE_API_SECRET=...
+```
+
+Optional risk configuration (defaults shown in `.env.example`):
+- `RISK_PER_TRADE` (default 0.01 = 1% of equity at risk per trade)
+- `MAX_DAILY_LOSS_PCT` (default 0.02)
+- `MAX_TRADES_PER_DAY` (default 5)
+- `LIVE_LEVERAGE` (default 1)
+
+Start the live loop:
 
 ```bash
 python3 src/main.py
 ```
-
-This **does not place real orders**.
 
 ---
 

@@ -1,4 +1,5 @@
 from utils.logger import log
+from utils.config import Config
 from data.historical_data import load_historical_ohlcv
 from indicators.indicator_engine import add_indicators
 from strategy.variants import MeanReversionStrategy
@@ -10,8 +11,8 @@ from backtesting.visualizer import plot_equity_curve, plot_drawdowns
 
 
 def run_backtest(
-    symbol: str = "BTC/USDC",
-    timeframe: str = "1h",
+    symbol: str = Config.LIVE_SYMBOL,
+    timeframe: str = Config.LIVE_TIMEFRAME,
     start: str = "2023-01-01",
     end: str = "2025-01-01"
 ):
@@ -39,7 +40,13 @@ def run_backtest(
     # ---- Components ----
     strategy = MeanReversionStrategy(symbol)
     broker = PaperBroker(fee_rate=0.0005)
-    limiter = TradeLimiter(log_resets=False, log_blocks=True)
+    limiter = TradeLimiter(
+        max_trades_per_day=Config.MAX_TRADES_PER_DAY,
+        max_daily_loss_pct=Config.MAX_DAILY_LOSS_PCT,
+        max_daily_profit_pct=Config.MAX_DAILY_PROFIT_PCT,
+        log_resets=False,
+        log_blocks=True
+    )
     session = SessionState()
 
     # ---- Backtest Loop ----
@@ -88,13 +95,6 @@ def run_backtest(
     # ---- Summary ----
     log.info("=== Backtest Complete ===")
     session.print_summary()
-
-    # ---- Visualization ----
-    log.info("Plotting equity curve...")
-    plot_equity_curve(session)
-
-    log.info("Plotting drawdowns...")
-    plot_drawdowns(session)
 
     return session
 
