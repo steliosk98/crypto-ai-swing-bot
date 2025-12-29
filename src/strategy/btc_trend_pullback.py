@@ -9,7 +9,7 @@ from strategy.sideways import detect_range
 
 class BTCTrendPullbackStrategy(BaseStrategy):
     """
-    Trend-following pullback strategy for BTC/USDT on the 1h timeframe.
+    Trend-following pullback strategy for BTC/USDC on the 1h timeframe.
 
     Behavior by regime:
 
@@ -34,7 +34,7 @@ class BTCTrendPullbackStrategy(BaseStrategy):
         → LONG if break up, SHORT if break down
     """
 
-    def __init__(self, symbol: str = "BTC/USDT"):
+    def __init__(self, symbol: str = "BTC/USDC"):
         super().__init__(symbol=symbol)
 
     def generate_signal(self, candles: pd.DataFrame) -> TradeSignal:
