@@ -1,6 +1,8 @@
 from datetime import datetime
+import os
 
 from backtesting.session_state import SessionState, TradeRecord
+from backtesting.visualizer import plot_equity_curve
 from data.historical_data import load_historical_ohlcv
 from indicators.indicator_engine import add_indicators
 from execution.paper_broker import PaperBroker
@@ -26,7 +28,7 @@ def _run_window(
     )
     candles = add_indicators(candles)
     strategy = MeanReversionStrategy(symbol)
-    broker = PaperBroker()
+    broker = PaperBroker(fee_rate=0.0005)
     limiter = TradeLimiter(log_resets=False, log_blocks=False)
     session = SessionState()
     active_signal = None
@@ -88,6 +90,10 @@ def run_multi_window_backtests(
     full_session = _run_window(symbol, timeframe, start, end)
     if full_session:
         full_session.print_summary()
+        os.makedirs("logs", exist_ok=True)
+        output_path = os.path.join("logs", "equity_curve_full.png")
+        plot_equity_curve(full_session, save_path=output_path, show=False)
+        print(f"Saved equity curve to {output_path}")
 
     start_year = datetime.fromisoformat(start).year
     end_year = datetime.fromisoformat(end).year

@@ -23,11 +23,12 @@ class PaperBroker:
 
     Notes:
         - executes at candle close (backtesting behavior)
-        - ignores slippage & fees for now (we will add later)
+        - fee_rate applies per side (entry + exit)
     """
 
-    def __init__(self):
+    def __init__(self, fee_rate: float = 0.0):
         self.position: Optional[Position] = None
+        self.fee_rate = fee_rate
 
     # --------------------
     # Position Management
@@ -77,16 +78,20 @@ class PaperBroker:
         pos = self.position
         pnl_pct = None
 
+        fee_total = self.fee_rate * 2
+
         # ---- LONG exit ----
         if pos.side == "LONG":
             # SL triggered if low breaches it
             if low <= pos.stop_loss:
                 pnl_pct = (pos.stop_loss - pos.entry_price) / pos.entry_price
+                pnl_pct -= fee_total
                 log.info(f"LONG stopped out @ {pos.stop_loss} | PnL={pnl_pct:.2%}")
 
             # TP triggered if high touches it
             elif high >= pos.take_profit:
                 pnl_pct = (pos.take_profit - pos.entry_price) / pos.entry_price
+                pnl_pct -= fee_total
                 log.info(f"LONG take-profit hit @ {pos.take_profit} | PnL={pnl_pct:.2%}")
 
         # ---- SHORT exit ----
@@ -94,11 +99,13 @@ class PaperBroker:
             # SL triggered if high breaches stop
             if high >= pos.stop_loss:
                 pnl_pct = (pos.entry_price - pos.stop_loss) / pos.entry_price
+                pnl_pct -= fee_total
                 log.info(f"SHORT stopped out @ {pos.stop_loss} | PnL={pnl_pct:.2%}")
 
             # TP triggered if low touches it
             elif low <= pos.take_profit:
                 pnl_pct = (pos.entry_price - pos.take_profit) / pos.entry_price
+                pnl_pct -= fee_total
                 log.info(f"SHORT take-profit hit @ {pos.take_profit} | PnL={pnl_pct:.2%}")
 
         # ---- If no exit condition met ----

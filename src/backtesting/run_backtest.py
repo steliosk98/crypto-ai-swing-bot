@@ -38,7 +38,7 @@ def run_backtest(
 
     # ---- Components ----
     strategy = MeanReversionStrategy(symbol)
-    broker = PaperBroker()
+    broker = PaperBroker(fee_rate=0.0005)
     limiter = TradeLimiter(log_resets=False, log_blocks=True)
     session = SessionState()
 

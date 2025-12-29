@@ -23,7 +23,7 @@ class StrategyResult:
 
 
 def _run_strategy_loop(strategy, candles, symbol: str) -> SessionState:
-    broker = PaperBroker()
+    broker = PaperBroker(fee_rate=0.0005)
     limiter = TradeLimiter(log_resets=False, log_blocks=False)
     session = SessionState()
     active_signal = None

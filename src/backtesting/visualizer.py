@@ -12,7 +12,7 @@ def _series_or_index(values: Iterable[float], timestamps: Optional[Iterable] = N
     return list(range(len(values_list))), values_list
 
 
-def plot_equity_curve(session) -> None:
+def plot_equity_curve(session, save_path: Optional[str] = None, show: bool = True) -> None:
     """
     Plot the equity curve for a backtest session.
     """
@@ -31,7 +31,11 @@ def plot_equity_curve(session) -> None:
     plt.grid(True, alpha=0.3)
     plt.legend()
     plt.tight_layout()
-    plt.show()
+    if save_path:
+        plt.savefig(save_path, dpi=150)
+    if show:
+        plt.show()
+    plt.close()
 
 
 def plot_drawdowns(session) -> None:
