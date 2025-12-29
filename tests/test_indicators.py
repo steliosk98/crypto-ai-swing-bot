@@ -19,3 +19,4 @@ def test_indicator_engine_basic():
     assert not last["ema50"] is None
     assert not last["sma200"] is None
     assert not last["rsi14"] is None
+    assert not last["atr14"] is None

@@ -41,6 +41,23 @@ def macd(series: pd.Series, fast: int = 12, slow: int = 26, signal: int = 9):
     return macd_line, signal_line, histogram
 
 
+def atr(df: pd.DataFrame, period: int = 14) -> pd.Series:
+    """Average True Range"""
+    high = df["high"]
+    low = df["low"]
+    close = df["close"]
+    prev_close = close.shift(1)
+    true_range = pd.concat(
+        [
+            (high - low).abs(),
+            (high - prev_close).abs(),
+            (low - prev_close).abs(),
+        ],
+        axis=1,
+    ).max(axis=1)
+    return true_range.rolling(window=period).mean()
+
+
 def add_indicators(df: pd.DataFrame) -> pd.DataFrame:
     """
     Add a standardized set of indicators to a candle DataFrame.
@@ -57,5 +74,6 @@ def add_indicators(df: pd.DataFrame) -> pd.DataFrame:
     df["rsi14"] = rsi(close, 14)
 
     df["macd_line"], df["macd_signal"], df["macd_hist"] = macd(close)
+    df["atr14"] = atr(df, 14)
 
     return df
