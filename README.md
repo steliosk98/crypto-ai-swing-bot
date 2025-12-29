@@ -1,7 +1,7 @@
 
 # Crypto AI Swing Bot
 
-Adaptive, risk-aware cryptocurrency trading bot for **BTC/USDT**, built for
+Adaptive, risk-aware cryptocurrency trading bot for **BTC/USDC futures**, built for
 consistent performance and disciplined execution.
 
 This project focuses on:
@@ -17,8 +17,8 @@ This project focuses on:
 
 | Component | Status | Description |
 |----------|--------|-------------|
-| Market Data | ✔ | Live & historical OHLCV loading via CCXT |
-| Indicators | ✔ | EMA, SMA, RSI, MACD support via pandas_ta |
+| Market Data | ✔ | Live & historical COIN-M futures OHLCV via CCXT |
+| Indicators | ✔ | EMA, SMA, RSI, MACD via built-in indicator engine |
 | Market Regime Detection | ✔ | Uptrend / Downtrend / Sideways classification |
 | Strategy Engine | ✔ | Pullback longs, pullback shorts, sideways breakout |
 | Trade Limiter | ✔ | Max trades/day + daily PnL caps |
@@ -50,6 +50,8 @@ pip install -r requirements.txt
 
 Recommended Python version: `>= 3.9`
 
+Visualization requires `matplotlib` (included in `requirements.txt`).
+
 ---
 
 ## 🧪 Run a Backtest
@@ -59,9 +61,9 @@ python3 src/backtesting/run_backtest.py
 ```
 
 The default configuration tests:
-- BTC/USDT
+- BTC/USDC futures
 - 1 hour timeframe
-- 2021-01-01 → 2022-01-01
+- 2024-01-01 → 2025-01-01
 
 Modify the dates in `run_backtest.py` to test other periods.
 
@@ -87,6 +89,7 @@ crypto-ai-swing-bot/
 │  ├─ backtesting/
 │  │  ├─ run_backtest.py
 │  │  ├─ session_state.py
+│  │  ├─ visualizer.py
 │  ├─ data/
 │  │  ├─ historical_data.py
 │  │  ├─ market_data.py

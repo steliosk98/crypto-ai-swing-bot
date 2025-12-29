@@ -1,79 +1,79 @@
-import pandas as pd
 from utils.logger import log
-
 from data.historical_data import load_historical_ohlcv
 from indicators.indicator_engine import add_indicators
-
 from strategy.btc_trend_pullback import BTCTrendPullbackStrategy
 from strategy.regime import detect_regime
 from execution.paper_broker import PaperBroker
 from filters.trade_limiter import TradeLimiter
 from backtesting.session_state import SessionState, TradeRecord
+from backtesting.visualizer import plot_equity_curve, plot_drawdowns
 
 
 def run_backtest(
-    symbol="BTC/USDT",
-    timeframe="1h",
-    start="2021-01-01",
-    end="2022-01-01"
+    symbol: str = "BTC/USDC",
+    timeframe: str = "1h",
+    start: str = "2024-01-01",
+    end: str = "2025-01-01"
 ):
-    log.info(f"=== Starting Backtest for {symbol} ({timeframe}) ===")
+    """
+    Execute a full backtest over historical futures data (BTC/USDC).
+    Uses:
+        - COIN-M futures OHLCV for realistic long + short
+        - Trend pullback & breakout strategy
+        - Paper execution & session tracking
+        - Trade limiting rules
+        - Visualization
+    """
 
-    # Load historical candles
+    log.info(f"=== Starting Futures Backtest for {symbol} ({timeframe}) ===")
+
+    # ---- Load Data ----
     candles = load_historical_ohlcv(symbol, timeframe, start, end)
     if candles.empty:
-        log.error("No historical data — cannot run backtest.")
+        log.error("No data retrieved — backtest aborted.")
         return
 
-    # Add indicators once (we slice progressively inside loop)
+    # ---- Indicators ----
     candles = add_indicators(candles)
 
-    # instantiate modules
+    # ---- Components ----
     strategy = BTCTrendPullbackStrategy(symbol)
     broker = PaperBroker()
-    trade_limiter = TradeLimiter()
+    limiter = TradeLimiter()
     session = SessionState()
 
-    # iterate through candles one-by-one, starting after indicator warmup
-    for i in range(300, len(candles)):  # ensure indicators exist
-        window = candles.iloc[:i]       # slice up to current candle
+    # ---- Backtest Loop ----
+    for i in range(300, len(candles)):  # warmup for indicators
+        window = candles.iloc[:i]
         last = window.iloc[-1]
 
-        # 1) detect regime (for logging only here — strategy uses internally)
+        # Strategy + Regime
+        signal = strategy.generate_signal(window)
         regime = detect_regime(window)
 
-        # 2) generate strategy signal
-        signal = strategy.generate_signal(window)
+        # --- Open new trade if allowed ---
+        if not broker.has_open_position() and limiter.can_trade() and signal.is_actionable():
+            if broker.open_position(
+                symbol=symbol,
+                side=signal.side,
+                entry=signal.entry_price,
+                stop_loss=signal.stop_loss,
+                take_profit=signal.take_profit
+            ):
+                limiter.record_trade_opened()
 
-        # NOTE — during backtesting phase A, we skip AI filtering.
-        # future: import AI filter and apply here as second stage.
-
-        # 3) evaluate new trade (ONLY if no open position)
-        if not broker.has_open_position():
-            if trade_limiter.can_trade() and signal.is_actionable():
-                opened = broker.open_position(
-                    symbol,
-                    signal.side,
-                    signal.entry_price,
-                    signal.stop_loss,
-                    signal.take_profit
-                )
-                if opened:
-                    trade_limiter.record_trade_opened()
-
-        # 4) check open position for exit triggers
+        # --- Check exit conditions on open trade ---
         pnl_pct = broker.check_and_close(
             high=last["high"],
             low=last["low"],
             close=last["close"],
-            trade_limiter=trade_limiter
+            trade_limiter=limiter
         )
 
-        # 5) record closing trades into session state
+        # --- Record closed trades ---
         if pnl_pct is not None:
-            exit_price = (
-                signal.take_profit if pnl_pct > 0 else signal.stop_loss
-            )
+            exit_price = signal.take_profit if pnl_pct > 0 else signal.stop_loss
+
             trade = TradeRecord(
                 symbol=symbol,
                 side=signal.side,
@@ -85,16 +85,20 @@ def run_backtest(
             )
             session.record_trade(trade)
 
+    # ---- Summary ----
     log.info("=== Backtest Complete ===")
     session.print_summary()
+
+    # ---- Visualization ----
+    log.info("Plotting equity curve...")
+    plot_equity_curve(session)
+
+    log.info("Plotting drawdowns...")
+    plot_drawdowns(session)
+
     return session
 
 
+# ---- Entry Point ----
 if __name__ == "__main__":
-    # UPDATE THESE DATES TO TEST DIFFERENT PERIODS
-    run_backtest(
-        symbol="BTC/USDC",
-        timeframe="1h",
-        start="2021-01-01",
-        end="2022-01-01"
-    )
+    run_backtest()

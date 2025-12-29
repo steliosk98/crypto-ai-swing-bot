@@ -1,32 +1,32 @@
 import ccxt
 import pandas as pd
-from datetime import datetime
 from utils.logger import log
 from utils.config import Config
 
 
 def _init_client():
-    """Initialize the CCXT Binance client with API keys."""
+    """Initialize the CCXT Binance COIN-M futures client."""
     if not Config.BINANCE_API_KEY or not Config.BINANCE_API_SECRET:
         log.warning("Binance API keys not set — reading public market data only.")
 
-    return ccxt.binance({
-        'apiKey': Config.BINANCE_API_KEY,
-        'secret': Config.BINANCE_API_SECRET,
-        'enableRateLimit': True
+    return ccxt.binancecoinm({
+        "apiKey": Config.BINANCE_API_KEY,
+        "secret": Config.BINANCE_API_SECRET,
+        "enableRateLimit": True,
+        "options": {"defaultType": "delivery"}
     })
 
 
 client = _init_client()
 
 
-def fetch_ohlcv(symbol: str, timeframe: str = "1h", limit: int = 100) -> pd.DataFrame:
+def fetch_ohlcv(symbol: str, timeframe: str = "1h", limit: int = 200) -> pd.DataFrame:
     """
-    Fetch OHLCV candles and return as pandas DataFrame.
-    
+    Fetch COIN-M futures OHLCV candles and return as pandas DataFrame.
+
     Columns: timestamp, open, high, low, close, volume
     """
-    log.info(f"Fetching {limit} {timeframe} candles for {symbol}...")
+    log.info(f"Fetching {limit} {timeframe} futures candles for {symbol}...")
 
     try:
         data = client.fetch_ohlcv(symbol, timeframe=timeframe, limit=limit)
@@ -41,7 +41,20 @@ def fetch_ohlcv(symbol: str, timeframe: str = "1h", limit: int = 100) -> pd.Data
     return df
 
 
+class MarketData:
+    """
+    Simple wrapper for live futures market data.
+    """
+
+    def __init__(self, symbol: str, timeframe: str = "1h", limit: int = 200):
+        self.symbol = symbol
+        self.timeframe = timeframe
+        self.limit = limit
+
+    def fetch_ohlcv(self) -> pd.DataFrame:
+        return fetch_ohlcv(self.symbol, self.timeframe, self.limit)
+
+
 if __name__ == "__main__":
-    # Test run
-    candles = fetch_ohlcv("BTC/USDT", timeframe="1h", limit=10)
+    candles = fetch_ohlcv("BTC/USDC", timeframe="1h", limit=10)
     print(candles.tail())

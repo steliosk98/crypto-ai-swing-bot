@@ -8,3 +8,4 @@ apscheduler
 loguru
 python-dotenv
 pytest
+matplotlib
