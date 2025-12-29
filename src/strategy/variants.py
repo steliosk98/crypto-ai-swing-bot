@@ -1,3 +1,5 @@
+from typing import Iterable, Optional
+
 import pandas as pd
 
 from indicators.indicator_engine import add_indicators
@@ -80,13 +82,19 @@ class MeanReversionStrategy(BaseStrategy):
         atr_mult: float = 1.0,
         rsi_low: float = 30.0,
         rsi_high: float = 70.0,
-        min_stretch: float = 0.005
+        min_stretch: float = 0.005,
+        min_stretch_atr_mult: Optional[float] = None,
+        allowed_regimes: Optional[Iterable[MarketRegime]] = None,
+        allowed_utc_hours: Optional[Iterable[int]] = None,
     ):
         super().__init__(symbol)
         self.atr_mult = atr_mult
         self.rsi_low = rsi_low
         self.rsi_high = rsi_high
         self.min_stretch = min_stretch
+        self.min_stretch_atr_mult = min_stretch_atr_mult
+        self.allowed_regimes = set(allowed_regimes) if allowed_regimes else None
+        self.allowed_utc_hours = set(allowed_utc_hours) if allowed_utc_hours else None
 
     def generate_signal(self, df: pd.DataFrame) -> TradeSignal:
         if df is None or df.empty or len(df) < 50:
@@ -104,8 +112,22 @@ class MeanReversionStrategy(BaseStrategy):
         ema21 = float(last["ema21"])
         atr = float(last["atr14"])
 
+        if self.allowed_regimes:
+            regime = detect_regime(df)
+            if regime not in self.allowed_regimes:
+                return TradeSignal(symbol=self.symbol, side="FLAT", reason="Regime filter")
+
+        if self.allowed_utc_hours:
+            ts = last.get("timestamp")
+            if ts is None or ts.hour not in self.allowed_utc_hours:
+                return TradeSignal(symbol=self.symbol, side="FLAT", reason="Time filter")
+
         stretch = abs(close - ema21) / close
-        if rsi < self.rsi_low and stretch > self.min_stretch:
+        threshold = self.min_stretch
+        if self.min_stretch_atr_mult is not None:
+            threshold = max(threshold, (self.min_stretch_atr_mult * atr) / close)
+
+        if rsi < self.rsi_low and stretch > threshold:
             entry = close
             stop = entry - (self.atr_mult * atr)
             tp = entry + (1.0 * self.atr_mult * atr)
@@ -119,7 +141,7 @@ class MeanReversionStrategy(BaseStrategy):
                 reason="Mean reversion long"
             )
 
-        if rsi > self.rsi_high and stretch > self.min_stretch:
+        if rsi > self.rsi_high and stretch > threshold:
             entry = close
             stop = entry + (self.atr_mult * atr)
             tp = entry - (1.0 * self.atr_mult * atr)

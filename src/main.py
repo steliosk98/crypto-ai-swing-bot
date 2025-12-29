@@ -25,7 +25,8 @@ def main():
         atr_mult=Config.ATR_MULT,
         rsi_low=Config.RSI_LOW,
         rsi_high=Config.RSI_HIGH,
-        min_stretch=Config.MIN_STRETCH
+        min_stretch=Config.MIN_STRETCH,
+        min_stretch_atr_mult=Config.MIN_STRETCH_ATR_MULT
     )
     limiter = TradeLimiter(
         max_trades_per_day=Config.MAX_TRADES_PER_DAY,

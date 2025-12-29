@@ -33,7 +33,8 @@ def _run_window(
         atr_mult=Config.ATR_MULT,
         rsi_low=Config.RSI_LOW,
         rsi_high=Config.RSI_HIGH,
-        min_stretch=Config.MIN_STRETCH
+        min_stretch=Config.MIN_STRETCH,
+        min_stretch_atr_mult=Config.MIN_STRETCH_ATR_MULT
     )
     broker = PaperBroker(fee_rate=0.0005)
     limiter = TradeLimiter(log_resets=False, log_blocks=False)
