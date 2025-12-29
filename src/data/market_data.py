@@ -5,15 +5,15 @@ from utils.config import Config
 
 
 def _init_client():
-    """Initialize the CCXT Binance COIN-M futures client."""
+    """Initialize the CCXT Binance USDⓈ-M futures client (USDC perpetual)."""
     if not Config.BINANCE_API_KEY or not Config.BINANCE_API_SECRET:
         log.warning("Binance API keys not set — reading public market data only.")
 
-    return ccxt.binancecoinm({
+    return ccxt.binanceusdm({
         "apiKey": Config.BINANCE_API_KEY,
         "secret": Config.BINANCE_API_SECRET,
         "enableRateLimit": True,
-        "options": {"defaultType": "delivery"}
+        "options": {"defaultType": "future"}
     })
 
 
@@ -22,7 +22,7 @@ client = _init_client()
 
 def fetch_ohlcv(symbol: str, timeframe: str = "1h", limit: int = 200) -> pd.DataFrame:
     """
-    Fetch COIN-M futures OHLCV candles and return as pandas DataFrame.
+    Fetch USDⓈ-M futures OHLCV candles and return as pandas DataFrame.
 
     Columns: timestamp, open, high, low, close, volume
     """

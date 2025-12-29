@@ -17,7 +17,7 @@ This project focuses on:
 
 | Component | Status | Description |
 |----------|--------|-------------|
-| Market Data | ✔ | Live & historical COIN-M futures OHLCV via CCXT |
+| Market Data | ✔ | Live & historical USDⓈ-M futures OHLCV via CCXT |
 | Indicators | ✔ | EMA, SMA, RSI, MACD via built-in indicator engine |
 | Market Regime Detection | ✔ | Uptrend / Downtrend / Sideways classification |
 | Strategy Engine | ✔ | Pullback longs, pullback shorts, sideways breakout |

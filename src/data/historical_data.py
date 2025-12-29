@@ -11,11 +11,10 @@ def load_historical_ohlcv(
     limit: int = 1500
 ):
     """
-    Load OHLCV data using Binance COIN-M futures (USDC-margined contracts).
+    Load OHLCV data using Binance USDⓈ-M futures (USDC perpetual).
 
-    Why COIN-M futures?
-        Binance USDC-margined futures are provided under this market type.
-        This enables realistic long/short execution on USDC collateral.
+    Why USDⓈ-M futures?
+        Binance USDC perpetuals are listed under USDⓈ-M futures.
 
     Parameters:
         symbol      - "BTC/USDC"
@@ -25,9 +24,9 @@ def load_historical_ohlcv(
         limit       - max candles per fetch
     """
 
-    exchange = ccxt.binancecoinm({
+    exchange = ccxt.binanceusdm({
         "enableRateLimit": True,
-        "options": {"defaultType": "delivery"}  # COIN-M futures
+        "options": {"defaultType": "future"}  # USDⓈ-M futures
     })
 
     start_ts = int(pd.Timestamp(start).timestamp() * 1000)
