@@ -1,18 +1,37 @@
 import pandas as pd
-from typing import Optional
 
 from indicators.indicator_engine import add_indicators
 from .base_strategy import BaseStrategy
 from .signal import TradeSignal
+from strategy.regime import MarketRegime, detect_regime
+from strategy.sideways import detect_range
 
 
 class BTCTrendPullbackStrategy(BaseStrategy):
     """
-    Simple trend-following pullback strategy for BTC/USDT on 1h timeframe.
+    Trend-following pullback strategy for BTC/USDT on the 1h timeframe.
 
-    - Defines trend using SMA200 + EMA21/EMA50
-    - Looks for pullbacks toward EMA21 in an uptrend
-    - LONG-only for now (no shorts yet, to keep risk profile simpler)
+    Behavior by regime:
+
+    UPTREND:
+        - price > sma200
+        - ema21 > ema50
+        - look for pullback toward ema21
+        - RSI cooled below 60
+        → LONG setups
+
+    DOWNTREND:
+        - price < sma200
+        - ema21 < ema50
+        - look for rally up toward ema21
+        - RSI above 40 to avoid bottom-chasing
+        → SHORT setups
+
+    SIDEWAYS:
+        - low directional conviction
+        - WAIT through chop
+        - trigger breakout setups only when price exits range
+        → LONG if break up, SHORT if break down
     """
 
     def __init__(self, symbol: str = "BTC/USDT"):
@@ -20,11 +39,10 @@ class BTCTrendPullbackStrategy(BaseStrategy):
 
     def generate_signal(self, candles: pd.DataFrame) -> TradeSignal:
         if candles is None or candles.empty:
-            return TradeSignal(symbol=self.symbol, side="FLAT", reason="No data")
+            return TradeSignal(symbol=self.symbol, side="FLAT", reason="No data provided")
 
-        # Ensure indicators exist
+        # Compute indicators
         candles = add_indicators(candles.copy())
-
         last = candles.iloc[-1]
 
         price = float(last["close"])
@@ -33,50 +51,100 @@ class BTCTrendPullbackStrategy(BaseStrategy):
         ema50 = last.get("ema50")
         rsi14 = last.get("rsi14")
 
-        # If indicators are NaN (too few candles), skip
-        if pd.isna(sma200) or pd.isna(ema21) or pd.isna(ema50) or pd.isna(rsi14):
-            return TradeSignal(symbol=self.symbol, side="FLAT", reason="Not enough data for indicators")
+        # If indicator data is missing or NaN, skip
+        if any(pd.isna(v) for v in [sma200, ema21, ema50, rsi14]):
+            return TradeSignal(symbol=self.symbol, side="FLAT", reason="Not enough indicator history")
 
-        # ---- 1) Define uptrend ----
-        in_uptrend = price > sma200 and ema21 > ema50
+        # ---- Determine regime ----
+        regime = detect_regime(candles)
 
-        if not in_uptrend:
-            return TradeSignal(
-                symbol=self.symbol,
-                side="FLAT",
-                reason="No clean uptrend (flat/short conditions ignored for now)"
-            )
-
-        # ---- 2) Look for pullback toward EMA21 ----
-        # Conditions (simple, tweakable later):
-        # - Price close to EMA21 (within 0.5% for example)
-        # - RSI not overbought (below 60)
-
+        # Common metric — "near" pullback value
         distance_to_ema21 = abs(price - ema21) / ema21
+        near_ema21 = distance_to_ema21 < 0.005  # within 0.5% of EMA21
 
-        near_ema21 = distance_to_ema21 < 0.005  # 0.5%
-        rsi_ok = rsi14 < 60
+        # ==============================
+        # UPTREND → LONG on pullback
+        # ==============================
+        if regime == MarketRegime.UPTREND:
+            if near_ema21 and rsi14 < 60:
+                stop_loss = float(ema50)
+                risk = max(price - stop_loss, price * 0.01)
+                take_profit = price + 2 * risk
 
-        if near_ema21 and rsi_ok:
-            # Basic RR assumptions (tweak later, or move to risk module)
-            stop_loss = float(ema50)  # below EMA50 as a safety net
-            # Example take profit: 2x risk (very simple placeholder)
-            risk_per_unit = price - stop_loss if price > stop_loss else price * 0.01
-            take_profit = price + 2 * risk_per_unit
+                return TradeSignal(
+                    symbol=self.symbol,
+                    side="LONG",
+                    entry_price=price,
+                    stop_loss=stop_loss,
+                    take_profit=take_profit,
+                    confidence=0.6,  # base confidence; AI filter may adjust
+                    reason="Uptrend pullback: long opportunity"
+                )
 
-            return TradeSignal(
-                symbol=self.symbol,
-                side="LONG",
-                entry_price=price,
-                stop_loss=stop_loss,
-                take_profit=take_profit,
-                confidence=0.6,  # base confidence, AI layer will adjust later
-                reason="Uptrend + pullback to EMA21 with cooled RSI"
-            )
+            return TradeSignal(symbol=self.symbol, side="FLAT", reason="Uptrend: waiting for clean pullback")
 
-        # No setup
-        return TradeSignal(
-            symbol=self.symbol,
-            side="FLAT",
-            reason="No suitable pullback setup"
-        )
+        # ==============================
+        # DOWNTREND → SHORT on rally
+        # ==============================
+        if regime == MarketRegime.DOWNTREND:
+            if near_ema21 and rsi14 > 40:
+                stop_loss = float(ema50)
+                risk = max(stop_loss - price, price * 0.01)
+                take_profit = price - 2 * risk
+
+                return TradeSignal(
+                    symbol=self.symbol,
+                    side="SHORT",
+                    entry_price=price,
+                    stop_loss=stop_loss,
+                    take_profit=take_profit,
+                    confidence=0.6,
+                    reason="Downtrend pullback: short opportunity"
+                )
+
+            return TradeSignal(symbol=self.symbol, side="FLAT", reason="Downtrend: waiting for clean rally")
+
+        # ==============================
+        # SIDEWAYS → breakout mode only
+        # ==============================
+        if regime == MarketRegime.SIDEWAYS:
+            range_low, range_high = detect_range(candles)
+
+            # Breakout LONG
+            if price > range_high and rsi14 < 70:
+                stop_loss = float(ema50)
+                risk = max(price - stop_loss, price * 0.01)
+                take_profit = price + 2 * risk
+
+                return TradeSignal(
+                    symbol=self.symbol,
+                    side="LONG",
+                    entry_price=price,
+                    stop_loss=stop_loss,
+                    take_profit=take_profit,
+                    confidence=0.5,
+                    reason="Sideways breakout to upside: long entry"
+                )
+
+            # Breakout SHORT
+            if price < range_low and rsi14 > 30:
+                stop_loss = float(ema50)
+                risk = max(stop_loss - price, price * 0.01)
+                take_profit = price - 2 * risk
+
+                return TradeSignal(
+                    symbol=self.symbol,
+                    side="SHORT",
+                    entry_price=price,
+                    stop_loss=stop_loss,
+                    take_profit=take_profit,
+                    confidence=0.5,
+                    reason="Sideways breakout to downside: short entry"
+                )
+
+            return TradeSignal(symbol=self.symbol, side="FLAT", reason="Sideways: waiting for definitive breakout")
+
+        # ==============================
+        # Fallback
+        # ==============================
+        return TradeSignal(symbol=self.symbol, side="FLAT", reason="Regime not clear — staying flat")
