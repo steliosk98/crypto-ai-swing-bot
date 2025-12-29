@@ -81,23 +81,40 @@ This **does not place real orders**.
 
 ---
 
+## 🧠 Strategy (Mean Reversion Variant)
+
+The current backtests use a mean-reversion rule set designed to capture
+stretched moves back toward a short-term mean:
+- RSI extremes as a trigger (oversold/overbought)
+- minimum price stretch requirement before entry
+- ATR-based sizing for stop-loss and take-profit
+- trade limiter applied with daily reset at NYSE open
+
+This variant aims to take high-conviction pullbacks and exit on reversion
+rather than trend continuation.
+
 ## 🧪 Historical Testing (Local BTC/USD)
 
-Using Bitstamp BTC/USD 1h data (local CSV) for 2018-05-15 → 2025-12-01:
+Using Bitstamp BTC/USD 1h data (local CSV) for 2018-05-15 → 2025-12-01.
+Fees modeled as Binance USDC taker 0.05% per side:
 - Mean Reversion strategy
-- Return: 106025.24%
-- Max Drawdown: -15.35%
-- Trades: 4472
+- Return: 998.47%
+- Max Drawdown: -41.11%
+- Trades: 4523
+- Win Rate: 60.51%
 
 Per-year breakdown:
-- 2018 (from 2018-05-15): Return 16.09%, Trades 345, Win Rate 53.62%, Max DD -14.93%
-- 2019: Return 71.67%, Trades 554, Win Rate 55.05%, Max DD -15.35%
-- 2020: Return 118.82%, Trades 588, Win Rate 59.86%, Max DD -14.39%
-- 2021: Return 378.81%, Trades 546, Win Rate 62.64%, Max DD -10.45%
-- 2022: Return 181.02%, Trades 553, Win Rate 62.03%, Max DD -9.83%
-- 2023: Return 56.40%, Trades 561, Win Rate 57.93%, Max DD -5.70%
-- 2024: Return 149.92%, Trades 628, Win Rate 60.99%, Max DD -6.59%
-- 2025 (through 2025-12-01): Return 283.66%, Trades 562, Win Rate 70.46%, Max DD -4.40%
+- 2018 (from 2018-05-15): Return -19.40%, Trades 346, Win Rate 53.47%, Max DD -22.97%
+- 2019: Return -6.15%, Trades 563, Win Rate 54.71%, Max DD -29.31%
+- 2020: Return 21.57%, Trades 597, Win Rate 59.80%, Max DD -19.45%
+- 2021: Return 183.41%, Trades 554, Win Rate 62.64%, Max DD -11.51%
+- 2022: Return 58.28%, Trades 557, Win Rate 61.94%, Max DD -13.88%
+- 2023: Return -10.42%, Trades 564, Win Rate 57.98%, Max DD -21.31%
+- 2024: Return 31.67%, Trades 631, Win Rate 60.86%, Max DD -14.41%
+- 2025 (through 2025-12-01): Return 110.76%, Trades 574, Win Rate 70.03%, Max DD -6.81%
+
+Equity curve (full window):
+![Equity Curve](logs/equity_curve_full.png)
 
 Run multi-window backtests (full + per-year):
 
