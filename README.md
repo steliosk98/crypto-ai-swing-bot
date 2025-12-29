@@ -63,7 +63,7 @@ python3 src/backtesting/run_backtest.py
 The default configuration tests:
 - BTC/USDC futures
 - 1 hour timeframe
-- 2024-01-01 → 2025-01-01
+- 2023-01-01 → 2025-01-01
 
 Modify the dates in `run_backtest.py` to test other periods.
 
@@ -81,6 +81,30 @@ This **does not place real orders**.
 
 ---
 
+## 🧪 Historical Testing (Local BTC/USD)
+
+Using Bitstamp BTC/USD 1h data (local CSV) for 2018-05-15 → 2025-12-01:
+- Mean Reversion strategy
+- Return: 106025.24%
+- Max Drawdown: -15.35%
+- Trades: 4472
+
+Per-year breakdown:
+- 2018 (from 2018-05-15): Return 16.09%, Trades 345, Win Rate 53.62%, Max DD -14.93%
+- 2019: Return 71.67%, Trades 554, Win Rate 55.05%, Max DD -15.35%
+- 2020: Return 118.82%, Trades 588, Win Rate 59.86%, Max DD -14.39%
+- 2021: Return 378.81%, Trades 546, Win Rate 62.64%, Max DD -10.45%
+- 2022: Return 181.02%, Trades 553, Win Rate 62.03%, Max DD -9.83%
+- 2023: Return 56.40%, Trades 561, Win Rate 57.93%, Max DD -5.70%
+- 2024: Return 149.92%, Trades 628, Win Rate 60.99%, Max DD -6.59%
+- 2025 (through 2025-12-01): Return 283.66%, Trades 562, Win Rate 70.46%, Max DD -4.40%
+
+Run multi-window backtests (full + per-year):
+
+```bash
+python3 src/backtesting/run_window_backtests.py
+```
+
 ## 🗂 Directory Structure
 
 ```
@@ -88,6 +112,7 @@ crypto-ai-swing-bot/
 ├─ src/
 │  ├─ backtesting/
 │  │  ├─ run_backtest.py
+│  │  ├─ run_window_backtests.py
 │  │  ├─ session_state.py
 │  │  ├─ visualizer.py
 │  ├─ data/
