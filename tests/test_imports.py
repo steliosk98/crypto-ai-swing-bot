@@ -1,0 +1,9 @@
+def test_imports():
+    import data.market_data
+    import data.historical_data
+    import indicators.indicator_engine
+    import strategy.btc_trend_pullback
+    import strategy.regime
+    import execution.paper_broker
+    import filters.trade_limiter
+    import backtesting.session_state
