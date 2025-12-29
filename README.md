@@ -114,7 +114,7 @@ Per-year breakdown:
 - 2025 (through 2025-12-01): Return 110.76%, Trades 574, Win Rate 70.03%, Max DD -6.81%
 
 Equity curve (full window):
-![Equity Curve](logs/equity_curve_full.png)
+![Equity Curve](/equity_curve_full.png)
 
 Run multi-window backtests (full + per-year):
 
