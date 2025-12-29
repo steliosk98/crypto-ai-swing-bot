@@ -1,0 +1,9 @@
+ccxt
+python-binance
+openai
+pandas
+numpy
+ta
+apscheduler
+loguru
+python-dotenv
