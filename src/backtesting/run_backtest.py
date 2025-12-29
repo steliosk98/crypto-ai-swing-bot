@@ -1,7 +1,7 @@
 from utils.logger import log
 from data.historical_data import load_historical_ohlcv
 from indicators.indicator_engine import add_indicators
-from strategy.btc_trend_pullback import BTCTrendPullbackStrategy
+from strategy.variants import MeanReversionStrategy
 from strategy.regime import detect_regime
 from execution.paper_broker import PaperBroker
 from filters.trade_limiter import TradeLimiter
@@ -12,7 +12,7 @@ from backtesting.visualizer import plot_equity_curve, plot_drawdowns
 def run_backtest(
     symbol: str = "BTC/USDC",
     timeframe: str = "1h",
-    start: str = "2024-01-01",
+    start: str = "2023-01-01",
     end: str = "2025-01-01"
 ):
     """
@@ -37,7 +37,7 @@ def run_backtest(
     candles = add_indicators(candles)
 
     # ---- Components ----
-    strategy = BTCTrendPullbackStrategy(symbol)
+    strategy = MeanReversionStrategy(symbol)
     broker = PaperBroker()
     limiter = TradeLimiter(log_resets=False, log_blocks=True)
     session = SessionState()

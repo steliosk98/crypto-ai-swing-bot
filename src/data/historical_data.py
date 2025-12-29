@@ -1,6 +1,39 @@
 import ccxt
 import pandas as pd
+from pathlib import Path
 from utils.logger import log
+
+
+def _load_local_bitstamp_btcusd(
+    start: str,
+    end: str = None,
+    path: Path = Path("data/Bitstamp_BTCUSD_1h.csv"),
+) -> pd.DataFrame:
+    if not path.exists():
+        return pd.DataFrame()
+
+    df = pd.read_csv(path, skiprows=1)
+    df["timestamp"] = pd.to_datetime(df["date"], utc=True)
+    df = df.rename(
+        columns={
+            "open": "open",
+            "high": "high",
+            "low": "low",
+            "close": "close",
+            "Volume BTC": "volume",
+        }
+    )
+    df = df[["timestamp", "open", "high", "low", "close", "volume"]]
+    df = df.sort_values("timestamp")
+
+    start_dt = pd.Timestamp(start, tz="UTC")
+    if end:
+        end_dt = pd.Timestamp(end, tz="UTC")
+        df = df[(df["timestamp"] >= start_dt) & (df["timestamp"] <= end_dt)]
+    else:
+        df = df[df["timestamp"] >= start_dt]
+
+    return df.reset_index(drop=True)
 
 
 def load_historical_ohlcv(
@@ -23,6 +56,12 @@ def load_historical_ohlcv(
         end         - ISO date string or None = now
         limit       - max candles per fetch
     """
+
+    if symbol == "BTC/USD" and timeframe == "1h":
+        local_df = _load_local_bitstamp_btcusd(start, end)
+        if not local_df.empty:
+            log.info(f"Loaded {len(local_df)} local Bitstamp BTC/USD candles.")
+        return local_df
 
     exchange = ccxt.binanceusdm({
         "enableRateLimit": True,
@@ -64,6 +103,17 @@ def load_historical_ohlcv(
         columns=["timestamp", "open", "high", "low", "close", "volume"]
     )
     df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
+
+    start_dt = pd.Timestamp(start)
+    if end:
+        end_dt = pd.Timestamp(end)
+        df = df[(df["timestamp"] >= start_dt) & (df["timestamp"] <= end_dt)]
+    else:
+        df = df[df["timestamp"] >= start_dt]
+
+    if df.empty:
+        log.error("No futures data retrieved for requested window.")
+        return pd.DataFrame()
 
     log.info(f"Loaded {len(df)} futures candles for {symbol}.")
     return df
