@@ -39,7 +39,7 @@ def run_backtest(
     # ---- Components ----
     strategy = BTCTrendPullbackStrategy(symbol)
     broker = PaperBroker()
-    limiter = TradeLimiter()
+    limiter = TradeLimiter(log_resets=False, log_blocks=True)
     session = SessionState()
 
     # ---- Backtest Loop ----
@@ -52,7 +52,7 @@ def run_backtest(
         regime = detect_regime(window)
 
         # --- Open new trade if allowed ---
-        if not broker.has_open_position() and limiter.can_trade() and signal.is_actionable():
+        if not broker.has_open_position() and limiter.can_trade(now_utc=last["timestamp"]) and signal.is_actionable():
             if broker.open_position(
                 symbol=symbol,
                 side=signal.side,
