@@ -22,6 +22,11 @@ class Config:
     MAX_DAILY_LOSS_PCT = float(os.getenv("MAX_DAILY_LOSS_PCT", "0.02"))
     MAX_DAILY_PROFIT_PCT = float(os.getenv("MAX_DAILY_PROFIT_PCT", "0.015"))
     ENABLE_LIVE_TRADING = os.getenv("ENABLE_LIVE_TRADING", "false").lower() == "true"
+    MAX_MARGIN_UTILIZATION = float(os.getenv("MAX_MARGIN_UTILIZATION", "0.5"))
+    MIN_NOTIONAL_USDC = float(os.getenv("MIN_NOTIONAL_USDC", "5"))
+    FIXED_NOTIONAL_USDC = float(os.getenv("FIXED_NOTIONAL_USDC", "0"))
+    MIN_ORDER_QTY = float(os.getenv("MIN_ORDER_QTY", "0.001"))
+    MIN_ORDER_NOTIONAL_USDC = float(os.getenv("MIN_ORDER_NOTIONAL_USDC", "100"))
 
     RSI_LOW = float(os.getenv("RSI_LOW", "32"))
     RSI_HIGH = float(os.getenv("RSI_HIGH", "68"))

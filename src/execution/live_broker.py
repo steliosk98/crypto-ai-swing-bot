@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Optional
+import math
 
 import ccxt
 
@@ -37,7 +38,10 @@ class LiveBroker:
             "enableRateLimit": True,
             "options": {"defaultType": "future"},
         })
+        self.client.load_markets()
         self._position: Optional[LivePosition] = None
+        self._min_amount = max(self._load_min_amount(), Config.MIN_ORDER_QTY)
+        self._amount_step = self._load_amount_step()
         self._set_leverage()
 
     def _set_leverage(self) -> None:
@@ -101,21 +105,107 @@ class LiveBroker:
         except Exception:
             return round(amount, 6)
 
+    def _load_amount_step(self) -> float:
+        try:
+            market = self.client.market(self.symbol)
+        except Exception:
+            return 0.0
+
+        precision = market.get("precision", {}).get("amount")
+        try:
+            if precision is None:
+                return 0.0
+            precision = int(precision)
+            if precision <= 0:
+                return 0.0
+            return 10 ** (-precision)
+        except (TypeError, ValueError):
+            return 0.0
+
+    def _enforce_min_amount(self, amount: float) -> float:
+        if not self._min_amount:
+            return amount
+
+        min_amount = self._round_up_amount(self._min_amount)
+        amount = self._round_up_amount(amount)
+        if amount < min_amount:
+            return min_amount
+        return amount
+
+    def _round_up_amount(self, amount: float) -> float:
+        step = self._amount_step or self._min_amount
+        if not step:
+            return amount
+
+        return math.ceil(amount / step) * step
+
     def _compute_order_size(self, entry_price: float, stop_loss: float) -> Optional[float]:
         equity = self._get_equity()
         if equity is None:
             return None
 
-        risk_per_unit = abs(entry_price - stop_loss)
-        if risk_per_unit <= 0:
-            log.warning("Invalid stop distance — cannot size position.")
+        max_notional = equity * Config.MAX_MARGIN_UTILIZATION * max(self.leverage, 1)
+        max_qty = max_notional / entry_price
+
+        if Config.FIXED_NOTIONAL_USDC > 0:
+            target_notional = min(Config.FIXED_NOTIONAL_USDC, max_notional)
+            qty = target_notional / entry_price
+            if self._min_amount and qty < self._min_amount:
+                min_notional = self._min_amount * entry_price
+                if min_notional <= max_notional:
+                    qty = self._min_amount
+                else:
+                    log.warning(
+                        f"Min amount notional {min_notional:.2f} exceeds max allowed "
+                        f"{max_notional:.2f} — skipping trade."
+                    )
+                    return None
+        else:
+            risk_per_unit = abs(entry_price - stop_loss)
+            if risk_per_unit <= 0:
+                log.warning("Invalid stop distance — cannot size position.")
+                return None
+
+            risk_amount = equity * self.risk_per_trade
+            qty = risk_amount / risk_per_unit
+
+            qty = min(qty, max_qty)
+        min_notional = max(Config.MIN_NOTIONAL_USDC, Config.MIN_ORDER_NOTIONAL_USDC)
+        if min_notional > max_notional:
+            log.warning(
+                f"Min notional {min_notional:.2f} exceeds max allowed "
+                f"{max_notional:.2f} — skipping trade."
+            )
             return None
 
-        risk_amount = equity * self.risk_per_trade
-        qty = risk_amount / risk_per_unit
-        qty = self._amount_to_precision(qty)
+        required_qty = min_notional / entry_price
+        qty = max(qty, required_qty)
+        qty = self._round_up_amount(qty)
+        qty = self._enforce_min_amount(qty)
+        log.info(
+            f"Sizing debug — equity={equity:.2f}, entry={entry_price:.2f}, "
+            f"max_notional={max_notional:.2f}, qty={qty:.6f}, "
+            f"min_qty={self._min_amount:.6f}, min_notional={min_notional:.2f}, "
+            f"required_qty={required_qty:.6f}"
+        )
+
         if qty <= 0:
             return None
+
+        if self._min_amount and qty < self._min_amount:
+            log.warning(
+                f"Order size {qty:.6f} below min amount {self._min_amount:.6f} — skipping trade."
+            )
+            return None
+
+        notional = qty * entry_price
+        if notional < min_notional:
+            log.warning(
+                f"Notional {notional:.2f} below min required "
+                f"({min_notional:.2f}) — skipping trade."
+            )
+            return None
+
         return qty
 
     @staticmethod
@@ -193,3 +283,14 @@ class LiveBroker:
         if self._position.side == "LONG":
             return (exit_price - entry) / entry
         return (entry - exit_price) / entry
+    def _load_min_amount(self) -> float:
+        try:
+            market = self.client.market(self.symbol)
+        except Exception:
+            return 0.0
+
+        min_amount = market.get("limits", {}).get("amount", {}).get("min")
+        try:
+            return float(min_amount) if min_amount is not None else 0.0
+        except (TypeError, ValueError):
+            return 0.0

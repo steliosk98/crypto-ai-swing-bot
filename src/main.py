@@ -14,6 +14,13 @@ def main():
         return
 
     log.info("=== Live trading loop (auto execution enabled) ===")
+    log.info(
+        f"Config — fixed_notional={Config.FIXED_NOTIONAL_USDC:.2f}, "
+        f"max_margin_util={Config.MAX_MARGIN_UTILIZATION:.2f}, "
+        f"min_order_notional={Config.MIN_ORDER_NOTIONAL_USDC:.2f}, "
+        f"min_order_qty={Config.MIN_ORDER_QTY:.6f}, "
+        f"leverage={Config.LIVE_LEVERAGE}"
+    )
 
     data = MarketData(
         Config.LIVE_SYMBOL,
