@@ -61,6 +61,27 @@ def _run_window(
         if last_ts < trade_start:
             continue
 
+        pnl_pct = broker.check_and_close(
+            high=last["high"],
+            low=last["low"],
+            close=last["close"],
+            trade_limiter=limiter,
+        )
+
+        if pnl_pct is not None and active_signal:
+            session.record_trade(
+                TradeRecord(
+                    symbol=Config.LIVE_SYMBOL,
+                    side=active_signal.side,
+                    entry_price=active_signal.entry_price,
+                    exit_price=broker.last_exit_price,
+                    pnl_pct=pnl_pct,
+                    reason=active_signal.reason,
+                    timestamp=last_ts,
+                )
+            )
+            active_signal = None
+
         signal = strategy.generate_signal(window)
 
         if not broker.has_open_position() and limiter.can_trade(now_utc=last_ts) and signal.is_actionable():
@@ -73,28 +94,6 @@ def _run_window(
             ):
                 limiter.record_trade_opened()
                 active_signal = signal
-
-        pnl_pct = broker.check_and_close(
-            high=last["high"],
-            low=last["low"],
-            close=last["close"],
-            trade_limiter=limiter,
-        )
-
-        if pnl_pct is not None and active_signal:
-            exit_price = active_signal.take_profit if pnl_pct > 0 else active_signal.stop_loss
-            session.record_trade(
-                TradeRecord(
-                    symbol=Config.LIVE_SYMBOL,
-                    side=active_signal.side,
-                    entry_price=active_signal.entry_price,
-                    exit_price=exit_price,
-                    pnl_pct=pnl_pct,
-                    reason=active_signal.reason,
-                    timestamp=last_ts,
-                )
-            )
-            active_signal = None
 
     return session
 

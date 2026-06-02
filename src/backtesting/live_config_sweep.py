@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, Optional
 
 import ccxt
 import pandas as pd
@@ -25,6 +25,7 @@ class SweepConfig:
     rsi_high: float
     atr_mult: float
     min_stretch: float
+    min_stretch_atr_mult: Optional[float]
 
 
 def _fetch_futures_ohlcv(symbol: str, timeframe: str, start: str, end: str) -> pd.DataFrame:
@@ -88,6 +89,7 @@ def _run_backtest(candles: pd.DataFrame, config: SweepConfig) -> dict:
         rsi_low=config.rsi_low,
         rsi_high=config.rsi_high,
         min_stretch=config.min_stretch,
+        min_stretch_atr_mult=config.min_stretch_atr_mult,
     )
     broker = PaperBroker(fee_rate=0.0005)
     limiter = TradeLimiter(
@@ -103,6 +105,28 @@ def _run_backtest(candles: pd.DataFrame, config: SweepConfig) -> dict:
     for i in range(300, len(candles)):
         window = candles.iloc[:i]
         last = window.iloc[-1]
+
+        pnl_pct = broker.check_and_close(
+            high=last["high"],
+            low=last["low"],
+            close=last["close"],
+            trade_limiter=limiter,
+        )
+
+        if pnl_pct is not None and active_signal:
+            session.record_trade(
+                TradeRecord(
+                    symbol=Config.LIVE_SYMBOL,
+                    side=active_signal.side,
+                    entry_price=active_signal.entry_price,
+                    exit_price=broker.last_exit_price,
+                    pnl_pct=pnl_pct,
+                    reason=active_signal.reason,
+                    timestamp=last["timestamp"],
+                )
+            )
+            active_signal = None
+
         signal = strategy.generate_signal(window)
 
         if not broker.has_open_position() and limiter.can_trade(now_utc=last["timestamp"]) and signal.is_actionable():
@@ -116,33 +140,12 @@ def _run_backtest(candles: pd.DataFrame, config: SweepConfig) -> dict:
                 limiter.record_trade_opened()
                 active_signal = signal
 
-        pnl_pct = broker.check_and_close(
-            high=last["high"],
-            low=last["low"],
-            close=last["close"],
-            trade_limiter=limiter,
-        )
-
-        if pnl_pct is not None and active_signal:
-            exit_price = active_signal.take_profit if pnl_pct > 0 else active_signal.stop_loss
-            session.record_trade(
-                TradeRecord(
-                    symbol=Config.LIVE_SYMBOL,
-                    side=active_signal.side,
-                    entry_price=active_signal.entry_price,
-                    exit_price=exit_price,
-                    pnl_pct=pnl_pct,
-                    reason=active_signal.reason,
-                    timestamp=last["timestamp"],
-                )
-            )
-            active_signal = None
-
     summary = session.summary()
     summary["rsi_low"] = config.rsi_low
     summary["rsi_high"] = config.rsi_high
     summary["atr_mult"] = config.atr_mult
     summary["min_stretch"] = config.min_stretch
+    summary["min_stretch_atr_mult"] = config.min_stretch_atr_mult or 0.0
     return summary
 
 
@@ -150,16 +153,19 @@ def _build_sweep_configs() -> Iterable[SweepConfig]:
     rsi_pairs = [(28.0, 72.0), (30.0, 70.0), (35.0, 65.0)]
     atr_mults = [0.8, 1.0, 1.2]
     stretches = [0.004, 0.006]
+    stretch_atr_mults = [None, Config.MIN_STRETCH_ATR_MULT]
 
     for rsi_low, rsi_high in rsi_pairs:
         for atr_mult in atr_mults:
             for min_stretch in stretches:
-                yield SweepConfig(
-                    rsi_low=rsi_low,
-                    rsi_high=rsi_high,
-                    atr_mult=atr_mult,
-                    min_stretch=min_stretch,
-                )
+                for min_stretch_atr_mult in stretch_atr_mults:
+                    yield SweepConfig(
+                        rsi_low=rsi_low,
+                        rsi_high=rsi_high,
+                        atr_mult=atr_mult,
+                        min_stretch=min_stretch,
+                        min_stretch_atr_mult=min_stretch_atr_mult,
+                    )
 
 
 def run_sweep(start: str, end: str) -> pd.DataFrame:
@@ -196,6 +202,7 @@ if __name__ == "__main__":
                 "rsi_high",
                 "atr_mult",
                 "min_stretch",
+                "min_stretch_atr_mult",
             ]
         ]
         .head(10)

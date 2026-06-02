@@ -44,6 +44,28 @@ def _run_window(
     for i in range(300, len(candles)):
         window = candles.iloc[:i]
         last = window.iloc[-1]
+
+        pnl_pct = broker.check_and_close(
+            high=last["high"],
+            low=last["low"],
+            close=last["close"],
+            trade_limiter=limiter
+        )
+
+        if pnl_pct is not None and active_signal:
+            session.record_trade(
+                TradeRecord(
+                    symbol=symbol,
+                    side=active_signal.side,
+                    entry_price=active_signal.entry_price,
+                    exit_price=broker.last_exit_price,
+                    pnl_pct=pnl_pct,
+                    reason=active_signal.reason,
+                    timestamp=last["timestamp"]
+                )
+            )
+            active_signal = None
+
         signal = strategy.generate_signal(window)
 
         if not broker.has_open_position() and limiter.can_trade(now_utc=last["timestamp"]) and signal.is_actionable():
@@ -56,30 +78,6 @@ def _run_window(
             ):
                 limiter.record_trade_opened()
                 active_signal = signal
-
-        pnl_pct = broker.check_and_close(
-            high=last["high"],
-            low=last["low"],
-            close=last["close"],
-            trade_limiter=limiter
-        )
-
-        if pnl_pct is not None and active_signal:
-            exit_price = (
-                active_signal.take_profit if pnl_pct > 0 else active_signal.stop_loss
-            )
-            session.record_trade(
-                TradeRecord(
-                    symbol=symbol,
-                    side=active_signal.side,
-                    entry_price=active_signal.entry_price,
-                    exit_price=exit_price,
-                    pnl_pct=pnl_pct,
-                    reason=active_signal.reason,
-                    timestamp=last["timestamp"]
-                )
-            )
-            active_signal = None
 
     return session
 

@@ -7,3 +7,5 @@ def test_paper_broker_long_tp():
     # simulate a candle that hits TP
     pnl = broker.check_and_close(high=111, low=99, close=105)
     assert pnl > 0
+    assert broker.last_exit_price == 110
+    assert broker.last_exit_reason == "take_profit"

@@ -29,6 +29,9 @@ class PaperBroker:
     def __init__(self, fee_rate: float = 0.0):
         self.position: Optional[Position] = None
         self.fee_rate = fee_rate
+        self.last_closed_position: Optional[Position] = None
+        self.last_exit_price: Optional[float] = None
+        self.last_exit_reason: Optional[str] = None
 
     # --------------------
     # Position Management
@@ -77,6 +80,11 @@ class PaperBroker:
 
         pos = self.position
         pnl_pct = None
+        exit_price = None
+        exit_reason = None
+        self.last_closed_position = None
+        self.last_exit_price = None
+        self.last_exit_reason = None
 
         fee_total = self.fee_rate * 2
 
@@ -84,12 +92,16 @@ class PaperBroker:
         if pos.side == "LONG":
             # SL triggered if low breaches it
             if low <= pos.stop_loss:
+                exit_price = pos.stop_loss
+                exit_reason = "stop_loss"
                 pnl_pct = (pos.stop_loss - pos.entry_price) / pos.entry_price
                 pnl_pct -= fee_total
                 log.info(f"LONG stopped out @ {pos.stop_loss} | PnL={pnl_pct:.2%}")
 
             # TP triggered if high touches it
             elif high >= pos.take_profit:
+                exit_price = pos.take_profit
+                exit_reason = "take_profit"
                 pnl_pct = (pos.take_profit - pos.entry_price) / pos.entry_price
                 pnl_pct -= fee_total
                 log.info(f"LONG take-profit hit @ {pos.take_profit} | PnL={pnl_pct:.2%}")
@@ -98,12 +110,16 @@ class PaperBroker:
         elif pos.side == "SHORT":
             # SL triggered if high breaches stop
             if high >= pos.stop_loss:
+                exit_price = pos.stop_loss
+                exit_reason = "stop_loss"
                 pnl_pct = (pos.entry_price - pos.stop_loss) / pos.entry_price
                 pnl_pct -= fee_total
                 log.info(f"SHORT stopped out @ {pos.stop_loss} | PnL={pnl_pct:.2%}")
 
             # TP triggered if low touches it
             elif low <= pos.take_profit:
+                exit_price = pos.take_profit
+                exit_reason = "take_profit"
                 pnl_pct = (pos.entry_price - pos.take_profit) / pos.entry_price
                 pnl_pct -= fee_total
                 log.info(f"SHORT take-profit hit @ {pos.take_profit} | PnL={pnl_pct:.2%}")
@@ -113,6 +129,9 @@ class PaperBroker:
             return None
 
         # ---- Record closure ----
+        self.last_closed_position = pos
+        self.last_exit_price = exit_price
+        self.last_exit_reason = exit_reason
         self.position = None
 
         # report to trade limiter if available

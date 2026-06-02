@@ -58,19 +58,25 @@ def main():
             log.warning("No candle data — retrying.")
             time.sleep(Config.LIVE_POLL_SECONDS)
             continue
+        if len(candles) < 2:
+            log.warning("Not enough candle data — retrying.")
+            time.sleep(Config.LIVE_POLL_SECONDS)
+            continue
 
-        last = candles.iloc[-1]
+        current = candles.iloc[-1]
+        closed_candles = candles.iloc[:-1]
+        last = closed_candles.iloc[-1]
         last_ts = last["timestamp"]
 
         if last_candle_ts is not None and last_ts <= last_candle_ts:
-            broker.sync_position(mark_price=float(last["close"]), trade_limiter=limiter)
+            broker.sync_position(mark_price=float(current["close"]), trade_limiter=limiter)
             time.sleep(Config.LIVE_POLL_SECONDS)
             continue
 
         last_candle_ts = last_ts
-        signal = strategy.generate_signal(candles)
+        signal = strategy.generate_signal(closed_candles)
 
-        broker.sync_position(mark_price=float(last["close"]), trade_limiter=limiter)
+        broker.sync_position(mark_price=float(current["close"]), trade_limiter=limiter)
 
         if signal.is_actionable() and limiter.can_trade(now_utc=last_ts):
             if not broker.has_open_position():

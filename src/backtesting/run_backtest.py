@@ -55,11 +55,34 @@ def run_backtest(
         log_blocks=True
     )
     session = SessionState()
+    active_signal = None
 
     # ---- Backtest Loop ----
     for i in range(300, len(candles)):  # warmup for indicators
         window = candles.iloc[:i]
         last = window.iloc[-1]
+
+        # --- Check exit conditions on open trade ---
+        pnl_pct = broker.check_and_close(
+            high=last["high"],
+            low=last["low"],
+            close=last["close"],
+            trade_limiter=limiter
+        )
+
+        # --- Record closed trades ---
+        if pnl_pct is not None and active_signal:
+            trade = TradeRecord(
+                symbol=symbol,
+                side=active_signal.side,
+                entry_price=active_signal.entry_price,
+                exit_price=broker.last_exit_price,
+                pnl_pct=pnl_pct,
+                reason=active_signal.reason,
+                timestamp=last["timestamp"]
+            )
+            session.record_trade(trade)
+            active_signal = None
 
         # Strategy + Regime
         signal = strategy.generate_signal(window)
@@ -75,29 +98,7 @@ def run_backtest(
                 take_profit=signal.take_profit
             ):
                 limiter.record_trade_opened()
-
-        # --- Check exit conditions on open trade ---
-        pnl_pct = broker.check_and_close(
-            high=last["high"],
-            low=last["low"],
-            close=last["close"],
-            trade_limiter=limiter
-        )
-
-        # --- Record closed trades ---
-        if pnl_pct is not None:
-            exit_price = signal.take_profit if pnl_pct > 0 else signal.stop_loss
-
-            trade = TradeRecord(
-                symbol=symbol,
-                side=signal.side,
-                entry_price=signal.entry_price,
-                exit_price=exit_price,
-                pnl_pct=pnl_pct,
-                reason=signal.reason,
-                timestamp=last["timestamp"]
-            )
-            session.record_trade(trade)
+                active_signal = signal
 
     # ---- Summary ----
     log.info("=== Backtest Complete ===")

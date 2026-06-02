@@ -111,6 +111,8 @@ class MeanReversionStrategy(BaseStrategy):
         close = float(last["close"])
         ema21 = float(last["ema21"])
         atr = float(last["atr14"])
+        if close <= 0:
+            return TradeSignal(symbol=self.symbol, side="FLAT", reason="Invalid price")
 
         if self.allowed_regimes:
             regime = detect_regime(df)
@@ -119,7 +121,7 @@ class MeanReversionStrategy(BaseStrategy):
 
         if self.allowed_utc_hours:
             ts = last.get("timestamp")
-            if ts is None or ts.hour not in self.allowed_utc_hours:
+            if ts is None or pd.Timestamp(ts).hour not in self.allowed_utc_hours:
                 return TradeSignal(symbol=self.symbol, side="FLAT", reason="Time filter")
 
         stretch = abs(close - ema21) / close
@@ -127,7 +129,7 @@ class MeanReversionStrategy(BaseStrategy):
         if self.min_stretch_atr_mult is not None:
             threshold = max(threshold, (self.min_stretch_atr_mult * atr) / close)
 
-        if rsi < self.rsi_low and stretch > threshold:
+        if rsi < self.rsi_low and close < ema21 and stretch > threshold:
             entry = close
             stop = entry - (self.atr_mult * atr)
             tp = entry + (1.0 * self.atr_mult * atr)
@@ -141,7 +143,7 @@ class MeanReversionStrategy(BaseStrategy):
                 reason="Mean reversion long"
             )
 
-        if rsi > self.rsi_high and stretch > threshold:
+        if rsi > self.rsi_high and close > ema21 and stretch > threshold:
             entry = close
             stop = entry + (self.atr_mult * atr)
             tp = entry - (1.0 * self.atr_mult * atr)

@@ -18,8 +18,8 @@ def rsi(series: pd.Series, period: int = 14) -> pd.Series:
     gain = np.where(delta > 0, delta, 0)
     loss = np.where(delta < 0, -delta, 0)
 
-    avg_gain = pd.Series(gain).rolling(window=period).mean()
-    avg_loss = pd.Series(loss).rolling(window=period).mean()
+    avg_gain = pd.Series(gain, index=series.index).rolling(window=period).mean()
+    avg_loss = pd.Series(loss, index=series.index).rolling(window=period).mean()
 
     rs = avg_gain / avg_loss
     return 100 - (100 / (1 + rs))
